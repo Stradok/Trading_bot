@@ -1,0 +1,10 @@
+# Overrides on top of default.yaml for backtest runs.
+
+data:
+  ohlcv_1m_path: "data/ohlcv/PAXG_USDT_1m.parquet"
+  ohlcv_1s_path: "data/ohlcv/PAXG_USDT_1s.parquet"
+
+backtest:
+  start: null   # null = use full available history
+  end: null
+  train_test_split: 0.7   # used by a plain single split; optimize.py uses rolling windows instead

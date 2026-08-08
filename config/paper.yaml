@@ -1,0 +1,13 @@
+# Overrides on top of default.yaml for paper trading runs.
+
+live:
+  poll_interval_seconds: 2
+  timeframe: "1m"          # falls back from '1s' if the exchange doesn't expose it, see data/live_feed.py
+  feature_window_bars: 200 # how many trailing bars to keep in memory for indicator computation
+
+  # Local run window, used by backtest/projection.py's "MacBook" scenario.
+  # Hours are in the timezone below; null start/end hour means treat as 24/7.
+  active_hours:
+    timezone: "UTC"
+    start_hour: null
+    end_hour: null

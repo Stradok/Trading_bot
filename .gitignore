@@ -1,0 +1,14 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Market data (large, regenerable via scripts/fetch_history.py)
+data/*.parquet
+data/**/*.parquet

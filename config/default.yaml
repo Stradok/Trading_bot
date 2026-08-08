@@ -1,0 +1,57 @@
+# Base configuration for the gold scalper. backtest.yaml / paper.yaml layer
+# overrides on top of this file (see gold_scalper/config.py: load_config).
+
+exchange:
+  id: binance
+  symbol: "PAXG/USDT"
+
+# Populated by scripts/calibrate_spread.py (--write-config). Current value is
+# from a short (60s, 10-sample) smoke-test calibration on 2026-08-08 -- real
+# enough to unblock development, but this should be re-run for a much longer
+# window (hours/days, per the plan) before trusting it for real thresholds.
+# config.validate() refuses to run a backtest/paper session while this is 0.
+spread:
+  spread_bps_p75: 0.023
+
+signal:
+  ema_fast_periods: 12
+  breakout_lookback: 24
+  atr_periods: 14
+  breakout_atr_mult: 0.35
+  slope_lookback: 6
+  min_slope: 0.0
+
+exit:
+  taker_fee_rate: 0.001       # Binance spot taker fee, ~0.1%/side
+  min_net_profit_pct: 0.0005  # buffer above round-trip cost required to arm the trailing exit
+  trail_atr_mult: 0.5
+  trail_spread_mult: 1.5
+  stop_loss_atr_mult: 1.0
+  max_hold_seconds: 1800
+
+execution:
+  taker_fee_rate: 0.001
+  extra_slippage_bps: 1.0
+
+lanes:
+  position_size_usd: 25.0
+  cooldown_seconds: 60
+  max_lanes: 4
+  min_notional_usd: 5.0  # Binance PAXG/USDT limits.cost.min, checked 2026-08-08 -- config.validate() enforces position_size_usd >= this
+  # [equity_growth_multiple_of_starting_capital, lane_count] -- multiples, not
+  # dollar amounts, so lane scaling reflects profit actually earned regardless
+  # of how much you started with (see gold_scalper/engine/lane_manager.py).
+  # 1.0 = starting capital, i.e. lane count starts at 1 with zero growth.
+  lane_equity_steps:
+    - [1.0, 1]
+    - [1.2, 2]
+    - [1.5, 3]
+    - [2.0, 4]
+
+circuit_breaker:
+  vol_spike_mult: 3.0     # checked against real PAXG/USDT 1m data 2026-08-08: atr/baseline ratio almost never exceeds this (p99 ~1.8), so it only fires on genuine spikes
+  volume_spike_mult: 10.0 # volume is naturally bursty (p95 ~4.2, p99 ~11.2 on real data) -- 4.0 fired on ~5.5% of ordinary bars, way too often to be a "spike"; 10.0 targets real outliers
+  max_daily_drawdown_pct: 0.05
+  flatten_on_trip: true
+  blackout_windows: []   # list of [start_iso, end_iso] UTC ranges, e.g. FOMC/NFP
+  baseline_window_bars: 60  # rolling window used for atr_baseline/volume_baseline, e.g. 60 x 1m bars = 1 hour

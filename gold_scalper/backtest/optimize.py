@@ -11,7 +11,7 @@ from __future__ import annotations
 import copy
 import itertools
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -56,23 +56,34 @@ def walk_forward_optimize(
     starting_cash: float = 200.0,
     drawdown_penalty: float = 2.0,
     min_trades: int = 5,
+    progress_callback: Callable[[str, dict], None] | None = None,
 ) -> list[WindowResult]:
+    """progress_callback(event: str, info: dict), if given, is called after
+    every train-combo backtest and after every window completes -- long
+    walk-forward runs can take much longer than a naive bars/sec estimate
+    suggests (real throughput depends heavily on trade frequency in the
+    slice), so don't run one of these blind without a way to see how far
+    along it actually is.
+    """
     results: list[WindowResult] = []
     start, end = bars.index[0], bars.index[-1]
     train_delta, test_delta = pd.Timedelta(days=train_days), pd.Timedelta(days=test_days)
 
     keys = list(param_grid.keys())
     combos = list(itertools.product(*param_grid.values())) if param_grid else [()]
+    total_windows = int((end - start - train_delta - test_delta) / test_delta) + 1 if end > start + train_delta + test_delta else 0
 
     window_start = start
+    window_index = 0
     while window_start + train_delta + test_delta <= end:
+        window_index += 1
         train_start, train_end = window_start, window_start + train_delta
         test_start, test_end = train_end, train_end + test_delta
         train_bars = bars.loc[train_start:train_end]
         test_bars = bars.loc[test_start:test_end]
 
         best_score, best_params, best_train_metrics = float("-inf"), {}, None
-        for combo in combos:
+        for combo_i, combo in enumerate(combos):
             params = dict(zip(keys, combo))
             cfg = copy.deepcopy(base_cfg)
             for path, value in params.items():
@@ -83,6 +94,11 @@ def walk_forward_optimize(
             score = _score(metrics, drawdown_penalty, min_trades)
             if score > best_score:
                 best_score, best_params, best_train_metrics = score, params, metrics
+            if progress_callback:
+                progress_callback("train_combo", {
+                    "window": window_index, "total_windows": total_windows,
+                    "combo": combo_i + 1, "total_combos": len(combos), "params": params,
+                })
 
         test_cfg = copy.deepcopy(base_cfg)
         for path, value in best_params.items():
@@ -96,6 +112,10 @@ def walk_forward_optimize(
             best_params=best_params, train_metrics=best_train_metrics, test_metrics=test_metrics,
             test_result=test_result,
         ))
+        if progress_callback:
+            progress_callback("window_done", {
+                "window": window_index, "total_windows": total_windows, "result": results[-1],
+            })
         window_start += test_delta  # rolling, non-overlapping test windows
 
     return results

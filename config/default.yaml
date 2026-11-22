@@ -31,10 +31,21 @@ exit:
 
 execution:
   taker_fee_rate: 0.001
-  extra_slippage_bps: 1.0
+  # Was 1.0 -- an uncalibrated placeholder that turned out to be *larger than
+  # the entire ATR-based stop-loss distance* during quieter periods (checked
+  # 2026-08-08: median ATR ~$0.68, p25 ATR ~$0.13, but 1.0bps slippage on
+  # PAXG's ~$4300 price = ~$0.43). That meant many trades were stopped out by
+  # the slippage assumption itself, not real price movement. At $8 position
+  # size, real market impact against PAXG's order book depth is negligible --
+  # 0.1bps is still conservative, not zero.
+  extra_slippage_bps: 0.1
 
 lanes:
-  position_size_usd: 25.0
+  # Sized for a $10 starting balance: above Binance's $5 min notional with
+  # headroom for fees, and still affordable after a lane's cash is tied up
+  # (see engine/lane.py:_can_afford, which now refuses to enter if cash is
+  # short rather than silently overdrawing).
+  position_size_usd: 8.0
   cooldown_seconds: 60
   max_lanes: 4
   min_notional_usd: 5.0  # Binance PAXG/USDT limits.cost.min, checked 2026-08-08 -- config.validate() enforces position_size_usd >= this

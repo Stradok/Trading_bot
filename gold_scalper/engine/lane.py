@@ -50,7 +50,7 @@ class Lane:
         fill_row = decision_row if fill_row is None else fill_row
 
         if self.status is LaneStatus.WATCHING:
-            if entry_signal(decision_row, cfg.signal):
+            if entry_signal(decision_row, cfg.signal) and self._can_afford(cfg, portfolio):
                 qty = cfg.lanes.position_size_usd / fill_row["open"]
                 fill = execution.market_buy(fill_row["open"], fill_row["spread"], qty, fill_row.name)
                 portfolio.apply_buy(self.id, fill)
@@ -80,6 +80,17 @@ class Lane:
         """Used by the circuit breaker to flatten an open position outside the normal exit rule."""
         if self.status is LaneStatus.IN_POSITION:
             self._close(decision_row if fill_row is None else fill_row, cfg, execution, portfolio, "circuit_breaker")
+
+    @staticmethod
+    def _can_afford(cfg: Config, portfolio: Portfolio) -> bool:
+        """Skip the entry rather than silently letting cash go negative --
+        matters most at small starting capital (e.g. $10), where a fixed
+        position_size_usd across several lanes can easily exceed what's
+        actually available. Buffer covers fees/slippage on top of the raw
+        notional so a fill doesn't overshoot available cash by a few cents.
+        """
+        buffer = 1 + cfg.execution.taker_fee_rate + cfg.execution.extra_slippage_bps / 10_000 + 0.005
+        return portfolio.cash >= cfg.lanes.position_size_usd * buffer
 
     def _close(self, fill_row: pd.Series, cfg: Config, execution: ExecutionSimulator, portfolio: Portfolio, reason: str) -> None:
         position = portfolio.open_positions[self.id]

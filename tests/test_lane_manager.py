@@ -94,6 +94,22 @@ def test_lane_opens_on_breakout_and_closes_on_trailing_exit():
     assert first_trade.pnl > 0  # entered ~101, exited well above that despite the pullback
 
 
+def test_lane_skips_entry_when_cash_is_insufficient():
+    # position_size_usd (25) exceeds starting cash (10) -- must not enter, and
+    # must never let portfolio.cash go negative
+    cfg = _single_lane_cfg(vol_spike_mult=1000.0, volume_spike_mult=1000.0)
+    bars = compute_all_features(make_bars(BREAKOUT_CLOSES), cfg)
+    portfolio = Portfolio(starting_cash=10.0)
+    manager = LaneManager(cfg, ExecutionSimulator(cfg.execution), portfolio)
+
+    for i in range(len(bars)):
+        manager.on_bar(bars.iloc[i])
+
+    assert len(portfolio.trade_log) == 0
+    assert portfolio.cash == 10.0
+    assert manager.lanes[0].status is LaneStatus.WATCHING
+
+
 def test_desired_lane_count_scales_with_equity_and_respects_max_lanes():
     cfg = make_config()
     manager = LaneManager(cfg, ExecutionSimulator(cfg.execution), Portfolio(starting_cash=100.0))

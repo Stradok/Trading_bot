@@ -13,6 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 OHLCV_COLUMNS = ["timestamp", "open", "high", "low", "close", "volume"]
+TRADE_COLUMNS = ["timestamp", "id", "price", "amount", "side"]
 
 
 def load_ohlcv(path: str | Path) -> pd.DataFrame | None:
@@ -43,6 +44,39 @@ def append_ohlcv(new_df: pd.DataFrame, path: str | Path) -> pd.DataFrame:
 
 def last_timestamp_ms(path: str | Path) -> int | None:
     df = load_ohlcv(path)
+    if df is None or df.empty:
+        return None
+    return int(df["timestamp"].iloc[-1])
+
+
+def load_trades(path: str | Path) -> pd.DataFrame | None:
+    path = Path(path)
+    if not path.exists():
+        return None
+    df = pd.read_parquet(path)
+    return df.sort_values("timestamp").reset_index(drop=True)
+
+
+def save_trades(df: pd.DataFrame, path: str | Path) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # dedupe on trade id, not timestamp -- many trades share the same millisecond
+    df = df.sort_values("timestamp").drop_duplicates(subset="id", keep="last")
+    df = df.reset_index(drop=True)
+    df.to_parquet(path, index=False)
+
+
+def append_trades(new_df: pd.DataFrame, path: str | Path) -> pd.DataFrame:
+    existing = load_trades(path)
+    combined = new_df if existing is None else pd.concat([existing, new_df], ignore_index=True)
+    combined = combined.sort_values("timestamp").drop_duplicates(subset="id", keep="last")
+    combined = combined.reset_index(drop=True)
+    save_trades(combined, path)
+    return combined
+
+
+def last_trade_timestamp_ms(path: str | Path) -> int | None:
+    df = load_trades(path)
     if df is None or df.empty:
         return None
     return int(df["timestamp"].iloc[-1])

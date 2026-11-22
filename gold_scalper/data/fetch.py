@@ -76,6 +76,64 @@ def fetch_ohlcv_history(
     return store.load_ohlcv(path)
 
 
+def fetch_recent_trades(
+    exchange_id: str,
+    symbol: str,
+    path: str,
+    window_days: int = 90,
+    progress_callback: ProgressCallback | None = None,
+) -> pd.DataFrame:
+    """Fetch raw trades (with taker side) over a recent window, resuming from
+    whatever is already stored. Unlike fetch_recent_second_bars, this keeps
+    the buy/sell side per trade instead of collapsing into OHLCV -- needed
+    for order-flow-imbalance features, which OHLCV bars can't express.
+    """
+    exchange = make_exchange(exchange_id)
+    exchange.load_markets()
+
+    last_ts = store.last_trade_timestamp_ms(path)
+    window_start_ms = exchange.milliseconds() - window_days * 24 * 3600 * 1000
+    since = max(last_ts, window_start_ms) if last_ts is not None else window_start_ms
+    now_ms = exchange.milliseconds()
+
+    pending: list = []
+    total_fetched = 0
+    while since < now_ms:
+        trades = exchange.fetch_trades(symbol, since=since, limit=1000)
+        if not trades:
+            break
+        pending.extend(
+            {"timestamp": t["timestamp"], "id": t["id"], "price": t["price"],
+             "amount": t["amount"], "side": t["side"]}
+            for t in trades
+        )
+        total_fetched += len(trades)
+
+        new_since = trades[-1]["timestamp"] + 1
+        if new_since <= since:
+            break
+        since = new_since
+
+        if progress_callback:
+            progress_callback(total_fetched, pd.to_datetime(trades[-1]["timestamp"], unit="ms", utc=True))
+
+        if len(pending) >= 20_000:
+            store.append_trades(pd.DataFrame(pending, columns=store.TRADE_COLUMNS), path)
+            pending = []
+
+        # Unlike OHLCV candles, Binance's trades endpoint caps each `since`-based
+        # page to ~1h of trades regardless of `limit` -- a short page does NOT
+        # mean we've caught up to "now", so (unlike fetch_ohlcv_history) there's
+        # no early-exit on a partial page here. Only `since >= now_ms` or an
+        # empty response ends the loop.
+        time.sleep(exchange.rateLimit / 1000)
+
+    if pending:
+        store.append_trades(pd.DataFrame(pending, columns=store.TRADE_COLUMNS), path)
+
+    return store.load_trades(path)
+
+
 def fetch_recent_second_bars(
     exchange_id: str,
     symbol: str,

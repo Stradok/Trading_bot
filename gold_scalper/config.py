@@ -84,6 +84,7 @@ class CircuitBreakerConfig:
 class DataPathsConfig:
     ohlcv_1m_path: str
     ohlcv_1s_path: str
+    trades_path: str | None = None
 
 
 @dataclass

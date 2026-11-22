@@ -3,6 +3,7 @@
 data:
   ohlcv_1m_path: "data/ohlcv/PAXG_USDT_1m.parquet"
   ohlcv_1s_path: "data/ohlcv/PAXG_USDT_1s.parquet"
+  trades_path: "data/trades/PAXG_USDT_trades.parquet"
 
 backtest:
   start: null   # null = use full available history

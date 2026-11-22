@@ -39,7 +39,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--train-days", type=int, default=180)
     parser.add_argument("--test-days", type=int, default=60)
-    parser.add_argument("--starting-cash", type=float, default=150.0)
+    parser.add_argument("--starting-cash", type=float, default=10.0)
     parser.add_argument("--local-start-hour", type=int, default=8)
     parser.add_argument("--local-end-hour", type=int, default=24)
     parser.add_argument("--local-timezone", default="UTC")

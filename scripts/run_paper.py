@@ -26,7 +26,7 @@ from gold_scalper.live.paper_runner import PaperRunner
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--starting-cash", type=float, default=150.0)
+    parser.add_argument("--starting-cash", type=float, default=10.0)
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args()
 

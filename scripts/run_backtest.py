@@ -23,7 +23,7 @@ from gold_scalper.data import store
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--starting-cash", type=float, default=200.0)
+    parser.add_argument("--starting-cash", type=float, default=10.0)
     parser.add_argument("--out-dir", default="data/reports")
     args = parser.parse_args()
 

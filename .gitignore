@@ -12,3 +12,8 @@ wheels/
 # Market data (large, regenerable via scripts/fetch_history.py)
 data/*.parquet
 data/**/*.parquet
+
+# Internal notes and agent config (kept locally; archived in Stradok/Archive)
+CLAUDE.md
+AGENTS.md
+/plan.md
